@@ -1,7 +1,9 @@
-use game::{Game, place_ships, Player};
-
+mod board_api;
+mod front;
 mod game;
-mod low_level_logic;
+
+use front::{place_ships, Cell};
+use game::{Game, Player};
 
 fn main() {
     // Main menu
@@ -30,6 +32,12 @@ fn main() {
     //   Switch screens
     //
     //  Greet the winner and quit
+    //
+
+    let mut board_buffer_alpha: [[Cell; 10]; 0] = []; // Cell[10][10]
+    let mut board_buffer_beta: [[Cell; 10]; 0] = [];
+    let mut shoot_buffer_alpha: [[Cell; 10]; 0] = [];
+    let mut shoot_buffer_beta: [[Cell; 10]; 0] = [];
 
     let mut game = Game::default();
 
@@ -39,7 +47,8 @@ fn main() {
     // switch screen
     loop {
         let shoot = 0; // TODO:
-        if game.step(shoot) { // step automaticly switches players
+        if game.step(shoot) {
+            // step automaticly switches players
             break;
         }
         // switch screen
