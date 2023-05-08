@@ -72,7 +72,7 @@ const fn board_set(board: u128, x: usize, y: usize, value: bool) -> u128 {
 /// Creates a horizontal ship of the given size.
 #[inline(always)]
 pub const fn create_ship(size: usize) -> u128 {
-    debug_assert!(size <= 4, "Ship size cannot be greater than 4!");
+    debug_assert!(size <= 5, "Ship size cannot be greater than 5!");
     ((1 << size) - 1) << (CAP - size)
 }
 
