@@ -1,6 +1,9 @@
 #![allow(clippy::unusual_byte_groupings)]
 
-use crate::constants::{BOARD_SIZE, BOARD_MASK, GAP, CAP, TOP_BORDER_MASK, BOT_BORDER_MASK, LEF_BORDER_MASK, RGT_BORDER_MASK};
+use crate::constants::{
+    BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK, RGT_BORDER_MASK,
+    TOP_BORDER_MASK,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Direction {
@@ -88,36 +91,38 @@ pub const fn add_ship(
 
 #[inline(always)]
 pub const fn create_surround_mask(item: u128) -> u128 {
-    use Direction::*;
-    let mask = item | move_board(item, 1, Right) | move_board(item, 1, Left);
-    mask | move_board(mask, 1, Up) | move_board(mask, 1, Down)
+    let mask_horizontal = item | item << 1 | item >> 1;
+
+    let mask_up = mask_horizontal << (BOARD_SIZE);
+    let mask_down = mask_horizontal >> (BOARD_SIZE);
+
+    mask_horizontal | mask_up | mask_down
 }
 
 #[inline(always)]
 pub const fn move_board(board: u128, step: usize, direction: Direction) -> u128 {
-    let shift = match direction {
-        Direction::Up | Direction::Down => BOARD_SIZE * step,
-        Direction::Left | Direction::Right => step,
-    };
     match direction {
-        Direction::Up | Direction::Left => board << shift,
-        Direction::Down | Direction::Right => board >> shift,
+        Direction::Up => board << (BOARD_SIZE * step),
+        Direction::Down => board >> (BOARD_SIZE * step),
+        Direction::Left => board << step,
+        Direction::Right => board >> step,
     }
 }
 
-// idk is it needed, probably not
 #[inline(always)]
-pub const fn move_ship(ship: u128, step: usize, direction: Direction) -> Result<u128, u128> {
+pub const fn move_ship(ship: u128, direction: Direction) -> Result<u128, ()> {
     let mask = match direction {
         Direction::Up => TOP_BORDER_MASK,
         Direction::Down => BOT_BORDER_MASK,
         Direction::Left => LEF_BORDER_MASK,
         Direction::Right => RGT_BORDER_MASK,
     };
+
     if ship & mask != 0 {
-        return Err(move_board(ship, step, direction));
+        return Err(());
     }
-    Ok(move_board(ship, step, direction))
+
+    Ok(move_board(ship, 1, direction))
 }
 
 #[inline(always)]
@@ -207,22 +212,21 @@ mod test {
     }
 
     #[test]
-    fn move_2_down() {
+    fn move_1_down() {
         assert_eq!(
             move_ship(
                 0b00001_00000__00000_00000__00000_00000 << GAP,
-                2,
                 Direction::Down
             ),
-            Ok(0b00000_00000_00000_00000_00001_00000 << GAP)
+            Ok(0b00000_00000_00001_00000_00000_00000 << GAP)
         );
     }
 
     #[test]
-    fn move_2_left() {
+    fn move_1_left() {
         assert_eq!(
-            move_ship(0b00001_00000, 2, Direction::Left),
-            Ok(0b00001_00000 << 2)
+            move_ship(0b00001_00000, Direction::Left),
+            Ok(0b00001_00000 << 1)
         );
     }
 }
