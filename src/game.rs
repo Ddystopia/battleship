@@ -9,8 +9,8 @@ const SHIPS_COUNT: usize = 5;
 // • катер - 2 ячейки.
 #[derive(Default, Copy, Clone, Debug)]
 pub struct Game {
-    pub alpha_ships: [u128; SHIPS_COUNT],
-    pub beta_ships: [u128; SHIPS_COUNT],
+    pub ships_alpha: [u128; SHIPS_COUNT],
+    pub ships_beta: [u128; SHIPS_COUNT],
     pub shoots_alpha: u128,
     pub shoots_beta: u128,
     pub step: usize,
@@ -20,6 +20,12 @@ pub struct Game {
 pub enum Player {
     Alpha = 0,
     Beta = 1,
+}
+
+impl Player {
+    pub fn other(&self) -> Player {
+        Player::from(!(*self as usize))
+    }
 }
 
 impl From<usize> for Player {
@@ -43,25 +49,18 @@ impl Game {
     /// * `shoot` - the shoot to be made.
     pub fn step(&mut self, shoot: u128) -> bool {
         let player: Player = self.step.into();
-        let other_player = self.other_player(player);
+        let outher_player_board = self.get_board(player.other());
         self.step += 1;
 
         match player {
             Player::Alpha => {
                 self.shoots_alpha |= shoot;
-                self.get_board(other_player) & !self.shoots_alpha == 0
+                outher_player_board & !self.shoots_alpha == 0
             }
             Player::Beta => {
                 self.shoots_beta |= shoot;
-                self.get_board(other_player) & !self.shoots_beta == 0
+                outher_player_board & !self.shoots_beta == 0
             }
-        }
-    }
-
-    fn other_player(&self, player: Player) -> Player {
-        match player {
-            Player::Alpha => Player::Beta,
-            Player::Beta => Player::Alpha,
         }
     }
 
@@ -69,8 +68,8 @@ impl Game {
         let mut board: u128 = 0;
         for i in 0..SHIPS_COUNT {
             board |= match player {
-                Player::Alpha => self.alpha_ships[i],
-                Player::Beta => self.beta_ships[i],
+                Player::Alpha => self.ships_alpha[i],
+                Player::Beta => self.ships_beta[i],
             };
         }
         board
@@ -83,35 +82,35 @@ impl Game {
         mask & board == 0
     }
 
-    pub fn add_ship(&mut self, player: Player, ship: u128, layer: u8) -> Result<(), ()> {
+    pub fn add_ship(&mut self, player: Player, ship: u128, layer: usize) -> Result<(), ()> {
         if !self.can_place_ship(player, ship) {
             return Err(());
         }
 
         match player {
             Player::Alpha => {
-                self.alpha_ships[layer as usize] |= ship;
+                self.ships_alpha[layer] |= ship;
             }
             Player::Beta => {
-                self.beta_ships[layer as usize] |= ship;
+                self.ships_beta[layer] |= ship;
             }
         };
         Ok(())
     }
 
-    pub fn add_ship_unchecked(&mut self, player: Player, ship: u128, layer: u8) {
+    pub fn add_ship_unchecked(&mut self, player: Player, ship: u128, layer: usize) {
         match player {
             Player::Alpha => {
-                self.alpha_ships[layer as usize] |= ship;
+                self.ships_alpha[layer] |= ship;
             }
             Player::Beta => {
-                self.beta_ships[layer as usize] |= ship;
+                self.ships_beta[layer] |= ship;
             }
         }
     }
 
     pub fn get_hitted(&self, player: Player) -> u128 {
-        let other_player = self.other_player(player);
+        let other_player = player.other();
 
         match player {
             Player::Alpha => self.shoots_alpha & self.get_board(other_player),
@@ -120,7 +119,7 @@ impl Game {
     }
 
     pub fn get_intact(&self, player: Player) -> u128 {
-        let other_player = self.other_player(player);
+        let other_player = player.other();
 
         match player {
             Player::Alpha => self.get_board(other_player) & !self.shoots_alpha,
