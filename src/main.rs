@@ -1,6 +1,7 @@
 mod board_api;
 mod front;
 mod game;
+mod constants;
 
 use front::{place_ships, Cell};
 use game::{Game, Player};
