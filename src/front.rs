@@ -1,6 +1,8 @@
-use crate::{board_api::{
-    create_ship, create_surround_mask, transpose, Orientation
-}, game::{Game, Player}, constants::BOARD_SIZE};
+use crate::{
+    board_api::{create_ship, create_surround_mask, transpose, Orientation},
+    constants::BOARD_SIZE,
+    game::{Game, Player},
+};
 
 // Base part of fiels. Represents something like [ ], [*], [~], [O]
 pub struct Cell {}
@@ -36,13 +38,10 @@ pub fn place_ships(game: &mut Game, player: Player) {
             };
 
             let mask = create_surround_mask(ship);
-            let players_board = match player {
-                Player::Alpha => game.board_alpha,
-                Player::Beta => game.board_beta,
-            };
+            let players_board = game.get_board(player);
 
             if mask & players_board == 0 {
-                game.add_ship_unchecked(player, ship);
+                game.add_ship_unchecked(player, ship, 0);
                 ship_placed = true;
             } else {
                 // Show red cells for invalid ship placement

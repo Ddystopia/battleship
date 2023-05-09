@@ -1,6 +1,9 @@
 #![allow(clippy::unusual_byte_groupings)]
 
-use crate::constants::{BOARD_SIZE, BOARD_MASK, GAP, CAP, TOP_BORDER_MASK, BOT_BORDER_MASK, LEF_BORDER_MASK, RGT_BORDER_MASK};
+use crate::constants::{
+    BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK, RGT_BORDER_MASK,
+    TOP_BORDER_MASK,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Direction {
