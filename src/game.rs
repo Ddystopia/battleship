@@ -55,17 +55,15 @@ impl Game {
     /// * `shoot` - the shoot to be made.
     pub fn step(&mut self, shoot: u128) -> bool {
         let player: Player = self.step.into();
-        let outher_player_board = self.get_board(player.other());
         self.step += 1;
-
         match player {
             Player::Alpha => {
                 self.shoots_alpha |= shoot;
-                outher_player_board & !self.shoots_alpha == 0
+                self.get_board(Player::Beta) & !self.shoots_alpha == 0
             }
             Player::Beta => {
                 self.shoots_beta |= shoot;
-                outher_player_board & !self.shoots_beta == 0
+                self.get_board(Player::Alpha) & !self.shoots_beta == 0
             }
         }
     }
