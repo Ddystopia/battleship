@@ -1,6 +1,6 @@
 use crate::{board_api::{
-    create_ship, create_surround_mask, transpose, Orientation, BOARD_SIZE,
-}, game::{Game, Player}};
+    create_ship, create_surround_mask, transpose, Orientation
+}, game::{Game, Player}, constants::BOARD_SIZE};
 
 // Base part of fiels. Represents something like [ ], [*], [~], [O]
 pub struct Cell {}
