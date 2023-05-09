@@ -24,7 +24,13 @@ pub enum Player {
 
 impl Player {
     pub fn other(&self) -> Player {
-        Player::from(!(*self as usize))
+        // for C use:
+        // unsafe { std::mem::transmute(self as u8 ^ 1) }
+        // (Player) (self ^ 1)
+        match self {
+            Player::Alpha => Player::Beta,
+            Player::Beta => Player::Alpha,
+        }
     }
 }
 
