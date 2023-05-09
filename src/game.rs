@@ -114,6 +114,8 @@ impl Game {
     }
 
     pub fn get_hitted(&self, player: Player) -> u128 {
+        let other_player = player.other();
+
         match player {
             Player::Alpha => self.shoots_alpha & self.get_board(Player::Beta),
             Player::Beta => self.shoots_beta & self.get_board(Player::Alpha),
