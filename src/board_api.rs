@@ -20,7 +20,7 @@ pub enum Orientation {
 }
 
 #[inline(always)]
-const fn board_get(board: u128, x: usize, y: usize) -> bool {
+pub const fn board_get(board: u128, x: usize, y: usize) -> bool {
     debug_assert!(x < BOARD_SIZE);
     debug_assert!(y < BOARD_SIZE);
     debug_assert!(board & !BOARD_MASK == 0);
@@ -30,7 +30,7 @@ const fn board_get(board: u128, x: usize, y: usize) -> bool {
 }
 
 #[inline(always)]
-const fn board_set(board: u128, x: usize, y: usize, value: bool) -> u128 {
+pub const fn board_set(board: u128, x: usize, y: usize, value: bool) -> u128 {
     debug_assert!(x < BOARD_SIZE);
     debug_assert!(y < BOARD_SIZE);
     debug_assert!(board & !BOARD_MASK == 0);
