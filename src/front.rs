@@ -14,7 +14,7 @@ pub type Cell = [char; CELL_SIZE];
 pub type OutputBuffer = [[Cell; BOARD_SIZE]; BOARD_SIZE];
 pub const CELL_SIZE: usize = 12; // color identifier (in rust: \u{001B}, in C: \033) + [ + color (2) + m + cell + color identifier (in rust: \u{001B}, in C: \033) + [ + 0 + m
 pub const SHIP_SIZES: [usize; 5] = [5, 4, 3, 3, 2];
-                                 //
+
 const CELL_MISS: Cell = create_cell("\u{001B}[00m[ ]\u{001B}[0m");
 const CELL_HIT: Cell = create_cell("\u{001B}[31m[*]\u{001B}[0m");
 const CELL_UNKNOWN: Cell = create_cell("\u{001B}[34m[~]\u{001B}[0m");
@@ -100,13 +100,7 @@ fn render_board_ships(board: u128, buffer: &mut OutputBuffer) {
     }
 }
 
-fn render_board_ships_n_new_ship(
-    game: &Game,
-    player: Player,
-    buffer: &mut OutputBuffer,
-    new_ship: u128,
-) {
-    let board = game.get_board(player);
+fn render_board_ships_n_new_ship(board: u128, buffer: &mut OutputBuffer, new_ship: u128) {
     render_board_ships(board, buffer);
 
     for y in 0..BOARD_SIZE {
@@ -126,11 +120,10 @@ fn render_board_ships_n_new_ship(
     }
 }
 
-fn render_board_hits(game: &Game, player: Player, buffer: &mut OutputBuffer) {
-    let board = game.get_hitted(player);
+fn render_board_hits(board: u128, buffer: &mut OutputBuffer) {
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
-            if board_get(game.get_board(player), x, y) {
+            if board_get(board, x, y) {
                 copy_cell(&CELL_SHIP, buffer, x, y);
             }
         }
@@ -164,28 +157,30 @@ fn display_board(buffer: &OutputBuffer) {
     stdout.flush().unwrap();
 }
 
-pub fn read_new_ship(game: &Game, player: Player, buffer: &mut OutputBuffer, ship_size: usize) -> u128 {
+pub fn read_new_ship(
+    game: &Game,
+    player: Player,
+    buffer: &mut OutputBuffer,
+    ship_size: usize,
+) -> u128 {
     let mut new_ship = create_ship(ship_size);
-    Command::new("clear").status().unwrap();
+
     clear_buffer(buffer);
     render_unknown(buffer);
-    render_board_ships_n_new_ship(game, player, buffer, new_ship);
-    display_board(buffer);
 
     loop {
-        let mut termios = Termios::from_fd(0).unwrap();
-        termios.c_lflag &= !(ECHO | ICANON);
-        termios.c_cc[VMIN] = 1;
-        termios.c_cc[VTIME] = 0;
-        tcsetattr(0, TCSANOW, &termios).unwrap();
-        let mut buf = [0u8; 1];
-        io::stdin().read_exact(&mut buf).unwrap();
-        termios.c_lflag |= ECHO | ICANON;
-        tcsetattr(0, TCSANOW, &termios).unwrap();
-        let input = buf[0] as char;
+        Command::new("clear").status().unwrap();
+
+        let board = game.get_board(player);
+
+        render_board_ships_n_new_ship(board, buffer, new_ship);
+        display_board(buffer);
+
+        let input = getchar();
 
         clear_buffer(buffer);
         render_unknown(buffer);
+
         if input == '\n' && game.can_place_ship(player, new_ship) {
             break;
         }
@@ -194,25 +189,39 @@ pub fn read_new_ship(game: &Game, player: Player, buffer: &mut OutputBuffer, shi
             new_ship = transpose(new_ship);
         }
 
-        if input == 'k' {
-            new_ship = saturated_move(new_ship, Direction::Up);
-        }
-        if input == 'j' {
-            new_ship = saturated_move(new_ship, Direction::Down);
-        }
-        if input == 'h' {
-            new_ship = saturated_move(new_ship, Direction::Left);
-        }
-        if input == 'l' {
-            new_ship = saturated_move(new_ship, Direction::Right);
-        }
-
-        render_board_ships_n_new_ship(game, player, buffer, new_ship);
-
-        Command::new("clear").status().unwrap();
-        display_board(buffer);
+        new_ship = move_by_user_input(new_ship, input);
     }
+
     new_ship
+}
+
+fn getchar() -> char {
+    let mut termios = Termios::from_fd(0).unwrap();
+    termios.c_lflag &= !(ECHO | ICANON);
+    termios.c_cc[VMIN] = 1;
+    termios.c_cc[VTIME] = 0;
+    tcsetattr(0, TCSANOW, &termios).unwrap();
+    let mut buf = [0u8; 1];
+    io::stdin().read_exact(&mut buf).unwrap();
+    termios.c_lflag |= ECHO | ICANON;
+    tcsetattr(0, TCSANOW, &termios).unwrap();
+    buf[0] as char
+}
+
+// will be reused for shooting
+// you are free to rename it as you want
+fn move_by_user_input(board: u128, input: char) -> u128 {
+    if input == 'k' || input == 'w' {
+        saturated_move(board, Direction::Up)
+    } else if input == 'j' || input == 's' {
+        saturated_move(board, Direction::Down)
+    } else if input == 'h' || input == 'a' {
+        saturated_move(board, Direction::Left)
+    } else if input == 'l' || input == 'd' {
+        saturated_move(board, Direction::Right)
+    } else {
+        board
+    }
 }
 
 pub fn render_mask(mask: u128) {

@@ -114,8 +114,6 @@ impl Game {
     }
 
     pub fn get_hitted(&self, player: Player) -> u128 {
-        let other_player = player.other();
-
         match player {
             Player::Alpha => self.shoots_alpha & self.get_board(Player::Beta),
             Player::Beta => self.shoots_beta & self.get_board(Player::Alpha),
@@ -123,11 +121,9 @@ impl Game {
     }
 
     pub fn get_intact(&self, player: Player) -> u128 {
-        let other_player = player.other();
-
         match player {
-            Player::Alpha => self.get_board(other_player) & !self.shoots_alpha,
-            Player::Beta => self.get_board(other_player) & !self.shoots_beta,
+            Player::Alpha => self.get_board(Player::Beta) & !self.shoots_alpha,
+            Player::Beta => self.get_board(Player::Alpha) & !self.shoots_beta,
         }
     }
 

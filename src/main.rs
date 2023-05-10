@@ -1,3 +1,7 @@
+#![allow(dead_code)]
+// #![allow(unused_variables)]
+#![allow(unused_imports)]
+
 use std::process::Command;
 
 use front::{read_new_ship, render_mask};
