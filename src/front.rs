@@ -2,7 +2,7 @@ use std::io::{self, BufWriter, Write};
 use std::{io::Read, process::Command};
 use termios::{tcsetattr, Termios, ECHO, ICANON, TCSANOW, VMIN, VTIME};
 
-use crate::board_api::{move_ship, Direction};
+use crate::board_api::{saturated_move, Direction};
 use crate::{
     board_api::{board_get, create_ship, create_surround_mask, transpose, Orientation},
     constants::BOARD_SIZE,
@@ -232,29 +232,21 @@ fn read_new_ship(
             break;
         }
 
-        if input == 'q' || input == 'e' {
+        if input == 'f' {
             new_ship = transpose(new_ship);
         }
 
-        if input == 'w' {
-            if let Ok(nship) = move_ship(new_ship, Direction::Up) {
-                new_ship = nship;
-            }
+        if input == 'k' {
+            new_ship = saturated_move(new_ship, Direction::Up);
         }
-        if input == 's' {
-            if let Ok(nship) = move_ship(new_ship, Direction::Down) {
-                new_ship = nship;
-            }
+        if input == 'j' {
+            new_ship = saturated_move(new_ship, Direction::Down);
         }
-        if input == 'a' {
-            if let Ok(nship) = move_ship(new_ship, Direction::Left) {
-                new_ship = nship;
-            }
+        if input == 'h' {
+            new_ship = saturated_move(new_ship, Direction::Left);
         }
-        if input == 'd' {
-            if let Ok(nship) = move_ship(new_ship, Direction::Right) {
-                new_ship = nship;
-            }
+        if input == 'l' {
+            new_ship = saturated_move(new_ship, Direction::Right);
         }
 
         render_board_ships_n_new_ship(game, player, buffer, new_ship);

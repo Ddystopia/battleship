@@ -1,8 +1,8 @@
 #![allow(clippy::unusual_byte_groupings)]
 
 use crate::constants::{
-    BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK, RGT_BORDER_MASK,
-    TOP_BORDER_MASK,
+    BOARD_BORDER, BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK,
+    RGT_BORDER_MASK, TOP_BORDER_MASK,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

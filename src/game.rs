@@ -7,17 +7,8 @@ const SHIPS_COUNT: usize = 5;
 // • разрушитель - 3 ячейки;
 // • подводная лодка - 3 ячейки;
 // • катер - 2 ячейки.
-const SHIPS_COUNT: usize = 5;
-
-// • авианосец - 5 ячеек(клеток);
-// • крейсер - 4 ячейки;
-// • разрушитель - 3 ячейки;
-// • подводная лодка - 3 ячейки;
-// • катер - 2 ячейки.
 #[derive(Default, Copy, Clone, Debug)]
 pub struct Game {
-    pub ships_alpha: [u128; SHIPS_COUNT],
-    pub ships_beta: [u128; SHIPS_COUNT],
     pub ships_alpha: [u128; SHIPS_COUNT],
     pub ships_beta: [u128; SHIPS_COUNT],
     pub shoots_alpha: u128,
@@ -29,18 +20,6 @@ pub struct Game {
 pub enum Player {
     Alpha = 0,
     Beta = 1,
-}
-
-impl Player {
-    pub fn other(&self) -> Player {
-        // for C use:
-        // unsafe { std::mem::transmute(self as u8 ^ 1) }
-        // (Player) (self ^ 1)
-        match self {
-            Player::Alpha => Player::Beta,
-            Player::Beta => Player::Alpha,
-        }
-    }
 }
 
 impl Player {
@@ -81,25 +60,12 @@ impl Game {
             Player::Alpha => {
                 self.shoots_alpha |= shoot;
                 self.get_board(Player::Beta) & !self.shoots_alpha == 0
-                self.get_board(Player::Beta) & !self.shoots_alpha == 0
             }
             Player::Beta => {
                 self.shoots_beta |= shoot;
                 self.get_board(Player::Alpha) & !self.shoots_beta == 0
-                self.get_board(Player::Alpha) & !self.shoots_beta == 0
             }
         }
-    }
-
-    pub fn get_board(&self, player: Player) -> u128 {
-        let mut board: u128 = 0;
-        for i in 0..SHIPS_COUNT {
-            board |= match player {
-                Player::Alpha => self.ships_alpha[i],
-                Player::Beta => self.ships_beta[i],
-            };
-        }
-        board
     }
 
     pub fn get_board(&self, player: Player) -> u128 {
@@ -115,7 +81,6 @@ impl Game {
 
     pub fn can_place_ship(&self, player: Player, ship: u128) -> bool {
         let mask = create_surround_mask(ship);
-        let board = self.get_board(player);
         let board = self.get_board(player);
 
         mask & board == 0
@@ -133,25 +98,12 @@ impl Game {
             Player::Beta => {
                 self.ships_beta[layer] |= ship;
             }
-            Player::Alpha => {
-                self.ships_alpha[layer] |= ship;
-            }
-            Player::Beta => {
-                self.ships_beta[layer] |= ship;
-            }
         };
         Ok(())
     }
 
     pub fn add_ship_unchecked(&mut self, player: Player, ship: u128, layer: usize) {
-    pub fn add_ship_unchecked(&mut self, player: Player, ship: u128, layer: usize) {
         match player {
-            Player::Alpha => {
-                self.ships_alpha[layer] |= ship;
-            }
-            Player::Beta => {
-                self.ships_beta[layer] |= ship;
-            }
             Player::Alpha => {
                 self.ships_alpha[layer] |= ship;
             }
@@ -173,11 +125,7 @@ impl Game {
     pub fn get_intact(&self, player: Player) -> u128 {
         let other_player = player.other();
 
-        let other_player = player.other();
-
         match player {
-            Player::Alpha => self.get_board(other_player) & !self.shoots_alpha,
-            Player::Beta => self.get_board(other_player) & !self.shoots_beta,
             Player::Alpha => self.get_board(other_player) & !self.shoots_alpha,
             Player::Beta => self.get_board(other_player) & !self.shoots_beta,
         }
@@ -205,10 +153,8 @@ mod test {
         let ship = move_board(ship, 1, Direction::Down);
         assert!(game.can_place_ship(Player::Alpha, ship));
         game.add_ship(Player::Alpha, ship, 0).unwrap();
-        game.add_ship(Player::Alpha, ship, 0).unwrap();
         let ship = create_ship(3);
         assert!(!game.can_place_ship(Player::Alpha, ship));
-        assert_eq!(game.add_ship(Player::Alpha, ship, 0), Err(()));
         assert_eq!(game.add_ship(Player::Alpha, ship, 0), Err(()));
     }
 
@@ -219,11 +165,9 @@ mod test {
         let ship = move_board(ship, 3, Direction::Down);
         assert!(game.can_place_ship(Player::Alpha, ship));
         game.add_ship(Player::Alpha, ship, 1).unwrap();
-        game.add_ship(Player::Alpha, ship, 1).unwrap();
         let ship = create_ship(3);
         let ship = move_board(ship, 1, Direction::Right);
         assert!(game.can_place_ship(Player::Alpha, ship));
-        assert_eq!(game.add_ship(Player::Alpha, ship, 1), Ok(()));
         assert_eq!(game.add_ship(Player::Alpha, ship, 1), Ok(()));
     }
 
@@ -234,11 +178,9 @@ mod test {
         let ship = move_board(ship, 2, Direction::Down);
         assert!(game.can_place_ship(Player::Alpha, ship));
         game.add_ship(Player::Alpha, ship, 2).unwrap();
-        game.add_ship(Player::Alpha, ship, 2).unwrap();
         let ship = create_ship(3);
         let ship = move_board(ship, 1, Direction::Right);
         assert!(game.can_place_ship(Player::Alpha, ship));
-        assert_eq!(game.add_ship(Player::Alpha, ship, 2), Ok(()));
         assert_eq!(game.add_ship(Player::Alpha, ship, 2), Ok(()));
     }
 }
