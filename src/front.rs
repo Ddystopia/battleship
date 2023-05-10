@@ -71,7 +71,6 @@ pub fn place_ships(game: &mut Game, player: Player) {
 // Buffer size: 12 * 10 * 10 = 1200
 
 const CELL_SIZE: usize = 12; // color identifier (in rust: \u{001B}, in C: \033) + [ + color (2) + m + cell + color identifier (in rust: \u{001B}, in C: \033) + [ + 0 + m
-
 const fn create_cell(val: &str) -> [char; CELL_SIZE] {
     let mut cell = [0 as char; CELL_SIZE];
     let mut i = 0;
@@ -86,7 +85,6 @@ const fn create_cell(val: &str) -> [char; CELL_SIZE] {
     }
     cell
 }
-
 const CELL_MISS: [char; CELL_SIZE] = create_cell("\u{001B}[00m[ ]\u{001B}[0m");
 const CELL_HIT: [char; CELL_SIZE] = create_cell("\u{001B}[31m[*]\u{001B}[0m");
 const CELL_UNKNOWN: [char; CELL_SIZE] = create_cell("\u{001B}[34m[~]\u{001B}[0m");
@@ -113,20 +111,19 @@ fn clear_buffer(buffer: &mut [[[char; CELL_SIZE]; 10]; 10]) {
     }
 }
 
-fn render_alpha_board_ships(game: &Game, buffer: &mut [[[char; CELL_SIZE]; 10]; 10]) {
+fn render_board(game: &Game, player: Player, buffer: &mut [[[char; CELL_SIZE]; 10]; 10]) {
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
-            let cell = if game.board_alpha & (1 << (y * BOARD_SIZE + x)) != 0 {
-                &CELL_SHIP
-            } else {
-                &CELL_UNKNOWN
+            let cell = match board_get(game.get_board(player), x, y) {
+                true => &CELL_SHIP,
+                false => &CELL_UNKNOWN,
             };
             copy_cell(cell, buffer, x, y);
         }
     }
 }
 
-fn display_alpha_board(buffer: &[[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
+fn display_board(buffer: &[[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
     let stdout = std::io::stdout();
     let mut stdout = BufWriter::new(stdout.lock());
 
@@ -142,18 +139,25 @@ fn display_alpha_board(buffer: &[[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
 
 #[cfg(test)]
 mod tests {
+    use crate::board_api::{move_ship, Direction};
+
     use super::*;
 
     #[test]
     fn test_display_alpha_board() {
         let mut game = Game::default();
         let mut buffer = [[[0 as char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE];
-        let ship = create_ship(4);
-        println!("{:b}", ship);
-        game.board_alpha |= ship;
-        println!("{:b}", game.board_alpha);
-        clear_buffer(&mut buffer);
-        render_alpha_board_ships(&game, &mut buffer);
-        display_alpha_board(&buffer);
+        let mut ship = create_ship(4);
+        let step = 1;
+        match move_ship(ship, step, Direction::Right) {
+            Err(err_mask) => {}
+            Ok(new_ship) => {
+                ship = new_ship;
+                game.add_ship(Player::Alpha, ship, 0);
+                clear_buffer(&mut buffer);
+                render_board(&game, Player::Alpha, &mut buffer);
+                display_board(&buffer);
+            }
+        }
     }
 }
