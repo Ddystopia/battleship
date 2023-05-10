@@ -232,20 +232,20 @@ fn read_new_ship(
             break;
         }
 
-        if input == 'q' || input == 'e' {
+        if input == 'f' {
             new_ship = transpose(new_ship);
         }
 
-        if input == 'w' {
+        if input == 'k' {
             new_ship = saturated_move(new_ship, Direction::Up);
         }
-        if input == 's' {
+        if input == 'j' {
             new_ship = saturated_move(new_ship, Direction::Down);
         }
-        if input == 'a' {
+        if input == 'h' {
             new_ship = saturated_move(new_ship, Direction::Left);
         }
-        if input == 'd' {
+        if input == 'l' {
             new_ship = saturated_move(new_ship, Direction::Right);
         }
 
