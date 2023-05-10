@@ -1,7 +1,7 @@
 #![allow(clippy::unusual_byte_groupings)]
 
 use crate::constants::{
-    BOARD_BORDER, BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK,
+    BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK,
     RGT_BORDER_MASK, TOP_BORDER_MASK,
 };
 
@@ -11,12 +11,6 @@ pub enum Direction {
     Down,
     Left,
     Right,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Orientation {
-    Horizontal,
-    Vertical,
 }
 
 #[inline(always)]
@@ -63,30 +57,6 @@ pub const fn board_set(board: u128, x: usize, y: usize, value: bool) -> u128 {
 pub const fn create_ship(size: usize) -> u128 {
     debug_assert!(size <= 5, "Ship size cannot be greater than 5!");
     ((1 << size) - 1) << (CAP - size)
-}
-
-// idk is it needed, probably not
-pub const fn add_ship(
-    board: u128,
-    x: usize,
-    y: usize,
-    size: usize,
-    orientation: Orientation,
-) -> Result<u128, (u128, u128)> {
-    let ship = create_ship(size);
-    let ship = match orientation {
-        Orientation::Horizontal => ship,
-        Orientation::Vertical => transpose(ship),
-    };
-    let ship = wrapping_move(ship, x, Direction::Right);
-    let ship = wrapping_move(ship, y, Direction::Down);
-    let mask = create_surround_mask(ship);
-
-    if mask & board != 0 {
-        return Err((board | ship, mask));
-    }
-
-    Ok(board | ship)
 }
 
 #[inline(always)]
@@ -163,6 +133,16 @@ pub const fn transpose(input: u128) -> u128 {
     }
 
     result
+}
+
+#[inline(always)]
+pub const fn ship_size(mut ship: u128) -> usize {
+    let mut length: usize = 0;
+    while ship != 0 {
+        length += (ship & 1) as usize;
+        ship >>= 1;
+    }
+    length
 }
 
 mod test {
