@@ -144,13 +144,13 @@ mod test {
     #![allow(unused_imports)]
 
     use super::*;
-    use crate::board_api::{create_ship, move_board, transpose, Direction};
+    use crate::board_api::{create_ship, wrapping_move, transpose, Direction};
 
     #[test]
     fn cant_place_a_ship() {
         let mut game = Game::default();
         let ship = transpose(create_ship(4));
-        let ship = move_board(ship, 1, Direction::Down);
+        let ship = wrapping_move(ship, 1, Direction::Down);
         assert!(game.can_place_ship(Player::Alpha, ship));
         game.add_ship(Player::Alpha, ship, 0).unwrap();
         let ship = create_ship(3);
@@ -162,11 +162,11 @@ mod test {
     fn place_a_ship() {
         let mut game = Game::default();
         let ship = transpose(create_ship(4));
-        let ship = move_board(ship, 3, Direction::Down);
+        let ship = wrapping_move(ship, 3, Direction::Down);
         assert!(game.can_place_ship(Player::Alpha, ship));
         game.add_ship(Player::Alpha, ship, 1).unwrap();
         let ship = create_ship(3);
-        let ship = move_board(ship, 1, Direction::Right);
+        let ship = wrapping_move(ship, 1, Direction::Right);
         assert!(game.can_place_ship(Player::Alpha, ship));
         assert_eq!(game.add_ship(Player::Alpha, ship, 1), Ok(()));
     }
@@ -175,11 +175,11 @@ mod test {
     fn place_a_ship_near() {
         let mut game = Game::default();
         let ship = transpose(create_ship(4));
-        let ship = move_board(ship, 2, Direction::Down);
+        let ship = wrapping_move(ship, 2, Direction::Down);
         assert!(game.can_place_ship(Player::Alpha, ship));
         game.add_ship(Player::Alpha, ship, 2).unwrap();
         let ship = create_ship(3);
-        let ship = move_board(ship, 1, Direction::Right);
+        let ship = wrapping_move(ship, 1, Direction::Right);
         assert!(game.can_place_ship(Player::Alpha, ship));
         assert_eq!(game.add_ship(Player::Alpha, ship, 2), Ok(()));
     }

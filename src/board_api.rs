@@ -78,8 +78,8 @@ pub const fn add_ship(
         Orientation::Horizontal => ship,
         Orientation::Vertical => transpose(ship),
     };
-    let ship = move_board(ship, x, Direction::Right);
-    let ship = move_board(ship, y, Direction::Down);
+    let ship = wrapping_move(ship, x, Direction::Right);
+    let ship = wrapping_move(ship, y, Direction::Down);
     let mask = create_surround_mask(ship);
 
     if mask & board != 0 {
@@ -101,7 +101,7 @@ pub const fn create_surround_mask(item: u128) -> u128 {
 }
 
 #[inline(always)]
-pub const fn move_board(board: u128, step: usize, direction: Direction) -> u128 {
+pub const fn wrapping_move(board: u128, step: usize, direction: Direction) -> u128 {
     match direction {
         Direction::Up => board << (BOARD_SIZE * step),
         Direction::Down => board >> (BOARD_SIZE * step),
@@ -123,7 +123,7 @@ pub const fn saturated_move(ship: u128, direction: Direction) -> u128 {
         return ship;
     }
 
-    move_board(ship, 1, direction)
+    wrapping_move(ship, 1, direction)
 }
 
 #[inline(always)]
@@ -139,7 +139,7 @@ pub const fn cutting_move(mut ship: u128, direction: Direction) -> u128 {
         ship &= !mask;
     }
 
-    move_board(ship, 1, direction)
+    wrapping_move(ship, 1, direction)
 }
 
 #[inline(always)]
@@ -172,7 +172,7 @@ mod test {
     #[test]
     fn surround_mask() {
         let ship = create_ship(3);
-        let ship = move_board(move_board(ship, 2, Direction::Down), 1, Direction::Right);
+        let ship = wrapping_move(wrapping_move(ship, 2, Direction::Down), 1, Direction::Right);
         assert_eq!(ship, 0b0000000000000000000001110000000000000000000000000000000000000000000000000000000000000000000000000000 << GAP);
         let mask = create_surround_mask(ship);
         assert_eq!(mask, 0b0000000000111110000011111000001111100000000000000000000000000000000000000000000000000000000000000000 << GAP);

@@ -25,7 +25,7 @@ typedef size_t usize;
 #ifdef BOARD_API_H
 
 #define TOP_BORDER_MASK (LINE)
-#define BOT_BORDER_MASK (move_board(TOP_BORDER_MASK, BOARD_SIZE - 1, Down))
+#define BOT_BORDER_MASK (wrapping_move(TOP_BORDER_MASK, BOARD_SIZE - 1, Down))
 #define LEF_BORDER_MASK (transpose(TOP_BORDER_MASK))
 #define RGT_BORDER_MASK (LEF_BORDER_MASK >> (BOARD_SIZE - 1))
 

@@ -41,7 +41,7 @@ inline u128 create_surround_mask(u128 item) {
   return mask_horizontal | mask_up | mask_down;
 }
 
-inline u128 move_board(u128 board, usize step, Direction direction) {
+inline u128 wrapping_move(u128 board, usize step, Direction direction) {
   switch (direction) {
   case Up:
     return board << BOARD_SIZE * step;
@@ -56,9 +56,7 @@ inline u128 move_board(u128 board, usize step, Direction direction) {
   }
 }
 
-inline u128 move_ship(u128 ship, Direction direction, Result *result_tag) {
-  assert(result_tag != NULL);
-
+inline u128 saturated_move(u128 ship, Direction direction) {
   u128 mask = TOP_BORDER_MASK;
   if (direction == Down) {
     mask = BOT_BORDER_MASK;
@@ -67,8 +65,27 @@ inline u128 move_ship(u128 ship, Direction direction, Result *result_tag) {
   } else if (direction == Right) {
     mask = RGT_BORDER_MASK;
   }
-  *result_tag = (ship & mask) == 0 ? Ok : Err;
-  return move_board(ship, 1, direction);
+  if ((ship & mask) != 0) {
+    return ship;
+  }
+
+  return wrapping_move(ship, 1, direction);
+}
+
+inline u128 cutting_move(u128 ship, Direction direction) {
+  u128 mask = TOP_BORDER_MASK;
+  if (direction == Down) {
+    mask = BOT_BORDER_MASK;
+  } else if (direction == Left) {
+    mask = LEF_BORDER_MASK;
+  } else if (direction == Right) {
+    mask = RGT_BORDER_MASK;
+  }
+  if ((ship & mask) != 0) {
+      ship &= !mask;
+  }
+
+  return wrapping_move(ship, 1, direction);
 }
 
 inline u128 transpose(u128 input) {
