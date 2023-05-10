@@ -1,57 +1,30 @@
+use std::process::Command;
+
+use front::{read_new_ship, render_mask};
+use game::{Game, Player};
+
+use constants::{BOARD_SIZE, BOARD_BORDER};
+use front::{CELL_SIZE, SHIP_SIZES};
+
 mod board_api;
 mod constants;
 mod front;
 mod game;
 
-use front::{place_ships, Cell};
-use game::{Game, Player};
-
 fn main() {
-    // Main menu
-    //  - Help
-    //  - Play
-    //
-    // Get ships placed from players
-    // Player Alpha
-    // While has ships to place
-    //   Choose a ship
-    //   Choose a valid place
-    //
-    // Switch screens
-    //
-    // Player Beta
-    // While has ships to place
-    //   Choose a ship
-    //   Choose a valid place
-    //
-    // Switch screens
-    //
-    // Start main loop
-    //   Let player choose a shell and shoot
-    //   if game is over break
-    //
-    //   Switch screens
-    //
-    //  Greet the winner and quit
-    //
-
-    let mut board_buffer_alpha: [[Cell; 10]; 0] = []; // Cell[10][10]
-    let mut board_buffer_beta: [[Cell; 10]; 0] = [];
-    let mut shoot_buffer_alpha: [[Cell; 10]; 0] = [];
-    let mut shoot_buffer_beta: [[Cell; 10]; 0] = [];
+    Command::new("clear").status().unwrap();
+    render_mask(BOARD_BORDER);
 
     let mut game = Game::default();
+    let mut buffer = [[[0 as char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE];
 
-    place_ships(&mut game, Player::Alpha);
-    // switch screen
-    place_ships(&mut game, Player::Beta);
-    // switch screen
-    loop {
-        let shoot = 0; // TODO:
-        if game.step(shoot) {
-            // step automaticly switches players
-            break;
-        }
-        // switch screen
+    for (i, size) in SHIP_SIZES.into_iter().enumerate() {
+        let new_ship = read_new_ship(&game, Player::Alpha, &mut buffer, size);
+        game.add_ship(Player::Alpha, new_ship, i).unwrap();
+    }
+
+    for (i, size) in SHIP_SIZES.into_iter().enumerate() {
+        let new_ship = read_new_ship(&game, Player::Beta, &mut buffer, size);
+        game.add_ship(Player::Beta, new_ship, i).unwrap();
     }
 }
