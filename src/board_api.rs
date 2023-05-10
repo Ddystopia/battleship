@@ -97,9 +97,7 @@ pub const fn create_surround_mask(item: u128) -> u128 {
     let mask_up = saturated_move(mask_horizontal, Up);
     let mask_down = saturated_move(mask_horizontal, Down);
 
-    let mask = mask_horizontal | mask_up | mask_down;
-
-    mask & !BOARD_BORDER
+    mask_horizontal | mask_up | mask_down
 }
 
 #[inline(always)]
