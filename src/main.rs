@@ -2,12 +2,10 @@
 // #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-use std::process::Command;
-
 use front::{read_new_ship, render_mask};
 use game::{Game, Player};
 
-use constants::{BOARD_SIZE, BOARD_BORDER};
+use constants::{BOARD_BORDER, BOARD_SIZE};
 use front::{CELL_SIZE, SHIP_SIZES};
 
 mod board_api;
@@ -16,7 +14,7 @@ mod front;
 mod game;
 
 fn main() {
-    Command::new("clear").status().unwrap();
+    print!("{}[2J{}[1;1H", 27 as char, 27 as char);
     render_mask(BOARD_BORDER);
 
     let mut game = Game::default();

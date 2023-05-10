@@ -1,5 +1,5 @@
+use std::io::Read;
 use std::io::{self, Write};
-use std::{io::Read, process::Command};
 use termios::{tcsetattr, Termios, ECHO, ICANON, TCSANOW, VMIN, VTIME};
 
 use crate::board_api::{saturated_move, Direction};
@@ -20,7 +20,7 @@ const CELL_HIT: Cell = create_cell("\u{001B}[31m[*]\u{001B}[0m");
 const CELL_UNKNOWN: Cell = create_cell("\u{001B}[34m[~]\u{001B}[0m");
 const CELL_SHIP: Cell = create_cell("\u{001B}[32m[O]\u{001B}[0m");
 const CELL_COLLISION: Cell = create_cell("\u{001B}[33m[X]\u{001B}[0m");
-const CELL_NEW_SHIP: Cell = create_cell("\u{001B}[32m[o]\u{001B}[0m");
+const CELL_NEW_SHIP: Cell = create_cell("\u{001B}[32m[n]\u{001B}[0m");
 
 // board -- 10x10 array of cells
 //
@@ -30,7 +30,7 @@ const CELL_NEW_SHIP: Cell = create_cell("\u{001B}[32m[o]\u{001B}[0m");
 //  - [~] -- unknown
 //  - [O] -- your ship
 //  - [X] -- collided ship
-//  - [o] -- new ship
+//  - [n] -- new ship
 //
 // colors :
 //   - [ ] -- \033[00m[ ]\033[0m
@@ -38,7 +38,7 @@ const CELL_NEW_SHIP: Cell = create_cell("\u{001B}[32m[o]\u{001B}[0m");
 //   - [~] -- \033[34m[~]\033[0m
 //   - [O] -- \033[32m[O]\033[0m
 //   - [X] -- \033[33m[X]\033[0m
-//   - [o] -- \033[32m[o]\033[0m
+//   - [n] -- \033[32m[o]\033[0m
 //
 // Cell size: 12
 //
@@ -169,7 +169,7 @@ pub fn read_new_ship(
     render_unknown(buffer);
 
     loop {
-        Command::new("clear").status().unwrap();
+        print!("{}[2J{}[1;1H", 27 as char, 27 as char);
 
         let board = game.get_board(player);
 
@@ -193,6 +193,17 @@ pub fn read_new_ship(
     }
 
     new_ship
+}
+
+pub fn clear() {
+    print!("{}[2J{}[1;1H", 27 as char, 27 as char);
+}
+
+pub fn wait_for_enter(text: &str) {
+    clear();
+    println!("{}", text);
+    println!("Press enter to continue...");
+    getchar();
 }
 
 fn getchar() -> char {
