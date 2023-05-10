@@ -3,6 +3,8 @@
 
 #include "constants.h"
 
+typedef enum Result { Ok, Err } Result;
+
 typedef enum Direction {
     Up,
     Down,

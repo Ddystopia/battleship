@@ -109,19 +109,20 @@ pub const fn move_board(board: u128, step: usize, direction: Direction) -> u128 
     }
 }
 
-// idk is it needed, probably not
 #[inline(always)]
-pub const fn move_ship(ship: u128, step: usize, direction: Direction) -> Result<u128, u128> {
+pub const fn move_ship(ship: u128, direction: Direction) -> Result<u128, ()> {
     let mask = match direction {
         Direction::Up => TOP_BORDER_MASK,
         Direction::Down => BOT_BORDER_MASK,
         Direction::Left => LEF_BORDER_MASK,
         Direction::Right => RGT_BORDER_MASK,
     };
+
     if ship & mask != 0 {
-        return Err(move_board(ship, step, direction));
+        return Err(());
     }
-    Ok(move_board(ship, step, direction))
+
+    Ok(move_board(ship, 1, direction))
 }
 
 #[inline(always)]
@@ -211,22 +212,21 @@ mod test {
     }
 
     #[test]
-    fn move_2_down() {
+    fn move_1_down() {
         assert_eq!(
             move_ship(
                 0b00001_00000__00000_00000__00000_00000 << GAP,
-                2,
                 Direction::Down
             ),
-            Ok(0b00000_00000_00000_00000_00001_00000 << GAP)
+            Ok(0b00000_00000_00001_00000_00000_00000 << GAP)
         );
     }
 
     #[test]
-    fn move_2_left() {
+    fn move_1_left() {
         assert_eq!(
-            move_ship(0b00001_00000, 2, Direction::Left),
-            Ok(0b00001_00000 << 2)
+            move_ship(0b00001_00000, Direction::Left),
+            Ok(0b00001_00000 << 1)
         );
     }
 }
