@@ -9,10 +9,9 @@ use crate::{
     game::{Game, Player},
 };
 
-pub type OutputBuffer = [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE];
-
 // Base part of fiels. Represents something like [ ], [*], [~], [O]
-pub struct Cell {}
+pub type Cell = [char; CELL_SIZE];
+pub type OutputBuffer = [[Cell; BOARD_SIZE]; BOARD_SIZE];
 
 // Ship placement logic for both players
 pub fn place_ships(game: &mut Game, player: Player) {
@@ -80,7 +79,7 @@ pub fn place_ships(game: &mut Game, player: Player) {
 // Buffer size: 12 * 10 * 10 = 1200
 
 const CELL_SIZE: usize = 12; // color identifier (in rust: \u{001B}, in C: \033) + [ + color (2) + m + cell + color identifier (in rust: \u{001B}, in C: \033) + [ + 0 + m
-const fn create_cell(val: &str) -> [char; CELL_SIZE] {
+const fn create_cell(val: &str) -> Cell {
     let mut cell = [0 as char; CELL_SIZE];
     let mut i = 0;
     let len = val.len();
@@ -94,25 +93,20 @@ const fn create_cell(val: &str) -> [char; CELL_SIZE] {
     }
     cell
 }
-const CELL_MISS: [char; CELL_SIZE] = create_cell("\u{001B}[00m[ ]\u{001B}[0m");
-const CELL_HIT: [char; CELL_SIZE] = create_cell("\u{001B}[31m[*]\u{001B}[0m");
-const CELL_UNKNOWN: [char; CELL_SIZE] = create_cell("\u{001B}[34m[~]\u{001B}[0m");
-const CELL_SHIP: [char; CELL_SIZE] = create_cell("\u{001B}[32m[O]\u{001B}[0m");
-const CELL_COLLISION: [char; CELL_SIZE] = create_cell("\u{001B}[33m[X]\u{001B}[0m");
-const CELL_NEW_SHIP: [char; CELL_SIZE] = create_cell("\u{001B}[32m[o]\u{001B}[0m");
+const CELL_MISS: Cell = create_cell("\u{001B}[00m[ ]\u{001B}[0m");
+const CELL_HIT: Cell = create_cell("\u{001B}[31m[*]\u{001B}[0m");
+const CELL_UNKNOWN: Cell = create_cell("\u{001B}[34m[~]\u{001B}[0m");
+const CELL_SHIP: Cell = create_cell("\u{001B}[32m[O]\u{001B}[0m");
+const CELL_COLLISION: Cell = create_cell("\u{001B}[33m[X]\u{001B}[0m");
+const CELL_NEW_SHIP: Cell = create_cell("\u{001B}[32m[o]\u{001B}[0m");
 
-fn copy_cell(
-    cell: &[char; CELL_SIZE],
-    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
-    x: usize,
-    y: usize,
-) {
+fn copy_cell(cell: &Cell, buffer: &mut OutputBuffer, x: usize, y: usize) {
     for i in 0..CELL_SIZE {
         buffer[y][x][i] = cell[i];
     }
 }
 
-fn clear_buffer(buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
+fn clear_buffer(buffer: &mut OutputBuffer) {
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
             for i in 0..CELL_SIZE {
@@ -122,7 +116,7 @@ fn clear_buffer(buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
     }
 }
 
-fn render_unknown(buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
+fn render_unknown(buffer: &mut OutputBuffer) {
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
             copy_cell(&CELL_UNKNOWN, buffer, x, y);
@@ -130,11 +124,7 @@ fn render_unknown(buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
     }
 }
 
-fn render_board_ships(
-    game: &Game,
-    player: Player,
-    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
-) {
+fn render_board_ships(game: &Game, player: Player, buffer: &mut OutputBuffer) {
     let board = game.get_board(player);
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
@@ -148,7 +138,7 @@ fn render_board_ships(
 fn render_board_ships_n_new_ship(
     game: &Game,
     player: Player,
-    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
+    buffer: &mut OutputBuffer,
     new_ship: u128,
 ) {
     render_board_ships(game, player, buffer);
@@ -171,11 +161,7 @@ fn render_board_ships_n_new_ship(
     }
 }
 
-fn render_board_hits(
-    game: &Game,
-    player: Player,
-    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
-) {
+fn render_board_hits(game: &Game, player: Player, buffer: &mut OutputBuffer) {
     let board = game.get_hitted(player);
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
@@ -186,7 +172,7 @@ fn render_board_hits(
     }
 }
 
-fn display_board(buffer: &[[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
+fn display_board(buffer: &OutputBuffer) {
     let mut stdout = io::stdout();
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
@@ -201,12 +187,7 @@ fn display_board(buffer: &[[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
     stdout.flush().unwrap();
 }
 
-fn read_new_ship(
-    game: &Game,
-    player: Player,
-    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
-    ship_size: usize,
-) -> u128 {
+fn read_new_ship(game: &Game, player: Player, buffer: &mut OutputBuffer, ship_size: usize) -> u128 {
     let mut new_ship = create_ship(ship_size);
     Command::new("clear").status().unwrap();
     clear_buffer(buffer);
