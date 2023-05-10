@@ -2,12 +2,12 @@ use std::io::Read;
 use std::io::{self, Write};
 use termios::{tcsetattr, Termios, ECHO, ICANON, TCSANOW, VMIN, VTIME};
 
-use crate::board_api::{saturated_move, Direction, wrapping_move};
+use crate::board_api::{saturated_move, Direction, wrapping_move, ship_size};
 use crate::constants::CELL;
 use crate::{
     board_api::{board_get, create_ship, create_surround_mask, transpose, Orientation},
     constants::BOARD_SIZE,
-    game::{Game, Player},
+    game::{Game, Player, SHIPS_COUNT},
 };
 
 // Base part of fiels. Represents something like [ ], [*], [~], [O]
@@ -183,27 +183,12 @@ fn display_board(buffer: &OutputBuffer) {
 
 fn display_two_boards(
     lbuffer: &OutputBuffer,
-    rbuffer: &OutputBuffer,
-    player: Player,
+    rbuffer: &OutputBuffer
 ) {
     let mut stdout = io::stdout();
 
-    let mut current_player_name: &str;
-    let mut other_player_name: &str;
-
-    match player {
-        Player::Alpha => {
-            current_player_name = "Alpha";
-            other_player_name = "Beta";
-        }
-        Player::Beta => {
-            current_player_name = "Beta";
-            other_player_name = "Alpha";
-        }
-    }
-
     // Allocate the temporary buffer on the stack
-    let mut temp_buffer = [0u8; 2 * BOARD_SIZE * CELL_SIZE + 1 + 1]; // +1 for the newline character. +1 tab
+    let mut temp_buffer = [0u8; 2 * BOARD_SIZE * CELL_SIZE + 1 + 2]; // +1 for the newline character. +2 tab
 
     for y in 0..BOARD_SIZE {
         let mut idx = 0;
@@ -217,9 +202,12 @@ fn display_two_boards(
             }
         }
 
-        // Add a tab character at the end of the line
+        // Add a tab characters at the end of the line
         temp_buffer[idx] = b'\t';
         idx += 1;
+        temp_buffer[idx] = b'\t';
+        idx += 1;
+        
 
         for x in 0..BOARD_SIZE {
             for i in 0..CELL_SIZE {
@@ -242,6 +230,101 @@ fn display_two_boards(
     stdout.flush().unwrap();
 }
 
+fn display_players_ships_status(game: &Game) {
+    let mut stdout = io::stdout();
+
+    // Allocate the temporary buffer on the stack
+    let mut temp_buffer = [0u8; 2 * BOARD_SIZE * CELL_SIZE + 1 + 2]; // +1 for the newline character. +2 tab
+    
+    // Display ships under board, line by line
+    for i in 0..SHIPS_COUNT {
+        let mut idx = 0;
+        let alpha_ship = game.ships_alpha[i];
+        let alpha_ship_size = ship_size(alpha_ship);
+        let alpha_ship_damage = ship_size(alpha_ship & game.shoots_beta);
+        let alpha_ship_undamage = alpha_ship_size - alpha_ship_damage;
+        let beta_ship = game.ships_beta[i];
+        let beta_ship_size = ship_size(beta_ship);
+        let beta_ship_damage = ship_size(beta_ship & game.shoots_alpha);
+        let beta_ship_undamage = beta_ship_size - beta_ship_damage;
+
+        // Display alpha side
+        for _ in 0..alpha_ship_undamage {
+            for i in 0..CELL_SIZE {
+                // temp_buffer[idx++] = buffer[y][x][i];
+                let c = CELL_SHIP[i];
+                let c_len = c.len_utf8();
+                c.encode_utf8(&mut temp_buffer[idx..idx + c_len]);
+                idx += c_len;
+            }
+        }
+
+        for _ in 0..alpha_ship_damage {
+            for i in 0..CELL_SIZE {
+                // temp_buffer[idx++] = buffer[y][x][i];
+                let c = CELL_HIT[i];
+                let c_len = c.len_utf8();
+                c.encode_utf8(&mut temp_buffer[idx..idx + c_len]);
+                idx += c_len;
+            }
+        }
+
+        for _ in 0..(BOARD_SIZE-alpha_ship_size) {
+            for i in 0..CELL_SIZE {
+                // temp_buffer[idx++] = buffer[y][x][i];
+                let c = CELL_MISS[i];
+                let c_len = c.len_utf8();
+                c.encode_utf8(&mut temp_buffer[idx..idx + c_len]);
+                idx += c_len;
+            }
+        }
+
+        // Add a tab characters at the end of the line
+        temp_buffer[idx] = b'\t';
+        idx += 1;
+        temp_buffer[idx] = b'\t';
+        idx += 1;
+
+        // Display beta side
+        for _ in 0..beta_ship_undamage {
+            for i in 0..CELL_SIZE {
+                // temp_buffer[idx++] = buffer[y][x][i];
+                let c = CELL_SHIP[i];
+                let c_len = c.len_utf8();
+                c.encode_utf8(&mut temp_buffer[idx..idx + c_len]);
+                idx += c_len;
+            }
+        }
+
+        for _ in 0..beta_ship_damage {
+            for i in 0..CELL_SIZE {
+                // temp_buffer[idx++] = buffer[y][x][i];
+                let c = CELL_HIT[i];
+                let c_len = c.len_utf8();
+                c.encode_utf8(&mut temp_buffer[idx..idx + c_len]);
+                idx += c_len;
+            }
+        }
+
+        for _ in 0..(BOARD_SIZE-beta_ship_size) {
+            for i in 0..CELL_SIZE {
+                // temp_buffer[idx++] = buffer[y][x][i];
+                let c = CELL_MISS[i];
+                let c_len = c.len_utf8();
+                c.encode_utf8(&mut temp_buffer[idx..idx + c_len]);
+                idx += c_len;
+            }
+        }
+        
+        temp_buffer[idx] = b'\n';
+        idx += 1;
+
+        // Print the line
+        stdout.write_all(&temp_buffer[..idx]).unwrap();
+    }
+    
+    stdout.flush().unwrap();
+}
 
 fn render_current_player_board(
     game: &Game,
@@ -252,14 +335,13 @@ fn render_current_player_board(
     let other_shoots = game.get_shoots(player.other());
     let hits: u128 = other_shoots & board;
 
-    clear_buffer(buffer);
     render_unknown(buffer);
     render_board_ships(board, buffer);
     render_border_shoots(other_shoots, buffer);
     render_board_hits(hits, buffer);
 }
 
-fn render_other_player_board(
+fn render_enamy_player_board(
     game: &Game,
     buffer: &mut OutputBuffer,
     player: Player,
@@ -274,31 +356,99 @@ fn render_other_player_board(
     render_board_hits(hits, buffer);
 }
 
-pub fn read_shoot(
+pub fn display_scene_after_shoot(
     game: &Game,
     lbuffer: &mut OutputBuffer,
     rbuffer: &mut OutputBuffer,
+    player: Player
+) {
+    clear();
+    clear_buffer(lbuffer);
+    render_unknown(lbuffer);
+    clear_buffer(rbuffer);
+    render_unknown(rbuffer);
+    
+    if player == Player::Alpha {
+        render_current_player_board(game, lbuffer, Player::Alpha);
+        render_enamy_player_board(game, rbuffer, Player::Alpha);
+    } else {
+        render_current_player_board(game, rbuffer, Player::Beta);
+        render_enamy_player_board(game, lbuffer, Player::Beta);
+    }
+
+    display_two_boards(lbuffer, rbuffer);
+    println!();
+    display_players_ships_status(game);
+    println!();
+
+    wait_for_enter("");
+}
+
+pub fn display_last_scene(
+    game: &Game,
+    lbuffer: &mut OutputBuffer,
+    rbuffer: &mut OutputBuffer,
+) {
+    clear();
+    clear_buffer(lbuffer);
+    render_unknown(lbuffer);
+    clear_buffer(rbuffer);
+    render_unknown(rbuffer);
+    render_current_player_board(game, lbuffer, Player::Alpha);
+    render_current_player_board(game, rbuffer, Player::Beta);
+    display_two_boards(lbuffer, rbuffer);
+    println!();
+    display_players_ships_status(game);
+    println!();
+    
+    if game.get_winner() == 0 {
+        wait_for_enter("Player Alpha wins!")
+    } else if game.get_winner() == 1 {
+        wait_for_enter("Player Beta wins!")
+    } else {
+        panic!("Invalid winner")
+    }
+}
+
+pub fn read_shoot(
+    game: &Game,
+    alpha_buffer: &mut OutputBuffer,
+    beta_buffer: &mut OutputBuffer,
     player: Player,
 ) -> u128 {
     let mut crosshair: u128 = CELL;
 
-    clear_buffer(lbuffer);
-    clear_buffer(rbuffer);
-    render_unknown(rbuffer);
-    render_unknown(lbuffer);
+    clear_buffer(alpha_buffer);
+    render_unknown(alpha_buffer);
+    clear_buffer(beta_buffer);
+    render_unknown(beta_buffer);
+
+    if player == Player::Alpha {
+        render_current_player_board(game, alpha_buffer, Player::Alpha);
+    } else {
+        render_current_player_board(game, beta_buffer, Player::Beta);
+    }
     
     loop {
         clear();
-        
-        render_current_player_board(game, lbuffer, player);
-        render_other_player_board(game, rbuffer, player);
-        render_crosshair(rbuffer, crosshair);
-        display_two_boards(lbuffer, rbuffer, player);
+        if player == Player::Alpha {
+            render_enamy_player_board(game, beta_buffer, Player::Alpha);
+            render_crosshair(beta_buffer, crosshair);
+        } else {
+            render_enamy_player_board(game, alpha_buffer, Player::Beta);
+            render_crosshair(alpha_buffer, crosshair);
+        }
+        display_two_boards(alpha_buffer, beta_buffer);
+        println!();
+        display_players_ships_status(game);
+        if player == Player::Alpha {
+            clear_buffer(beta_buffer);
+        } else {
+            clear_buffer(alpha_buffer);
+        }
 
         let input = getchar();
 
-        clear_buffer(lbuffer);
-        clear_buffer(rbuffer);
 
         if input == '\n' {
             break;
@@ -353,10 +503,9 @@ pub fn clear() {
 }
 
 pub fn wait_for_enter(text: &str) {
-    clear();
     println!("{}", text);
     println!("Press enter to continue...");
-    getchar();
+    while getchar() != '\n' {}
 }
 
 fn getchar() -> char {
@@ -421,8 +570,8 @@ mod tests {
         clear();
 
         let mut game = Game::default();
-        let mut lbuffer = [[[0 as char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE];
-        let mut rbuffer = [[[0 as char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE];
+        let mut alpha_buffer = [[[0 as char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE];
+        let mut beta_buffer = [[[0 as char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE];
 
         let ships_alpha: [u128; 5] = [
             0b111110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, 
@@ -445,10 +594,11 @@ mod tests {
         for (i, ship) in ships_beta.iter().enumerate() {
             game.add_ship(Player::Beta, *ship, i).unwrap();
         }
-        loop {
-            let shoot = read_shoot(&game, &mut lbuffer, &mut rbuffer, Player::Alpha);
-            game.shoot(Player::Alpha, shoot);
+        while !game.is_over() {
+            let shoot = read_shoot(&game, &mut alpha_buffer, &mut beta_buffer, Player::Beta);
+            game.shoot(Player::Beta, shoot);
         }
+        display_last_scene(&game, &mut alpha_buffer, &mut beta_buffer);
 
     }
 }

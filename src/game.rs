@@ -2,7 +2,7 @@ use std::{thread::sleep, time::Duration};
 
 use crate::{board_api::create_surround_mask, constants::BOT_BORDER_MASK, front::render_mask};
 
-const SHIPS_COUNT: usize = 5;
+pub const SHIPS_COUNT: usize = 5;
 
 // • авианосец - 5 ячеек(клеток);
 // • крейсер - 4 ячейки;
@@ -18,7 +18,7 @@ pub struct Game {
     pub step: usize,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Player {
     Alpha = 0,
     Beta = 1,
@@ -118,19 +118,32 @@ impl Game {
         }
     }
 
-    pub fn is_over(&self, player: Player) -> bool {
+    pub fn get_winner(&self) -> i8 {
+        if self.is_over() {
+            if self.get_board(Player::Beta) & !self.shoots_alpha == 0 {
+                return Player::Alpha as i8;
+            }
+            if self.get_board(Player::Alpha) & !self.shoots_beta == 0 {
+                return Player::Beta as i8;
+            }
+        }
+        -1
+    }
+
+    pub fn is_over(&self) -> bool {
         // UN CHECKED
-        let player_shoots = match player {
-            Player::Alpha => self.shoots_alpha,
-            Player::Beta => self.shoots_beta,
-        };
+        let alpha_board = self.get_board(Player::Alpha);
+        let beta_board = self.get_board(Player::Beta);
+        let alpha_shoots = self.shoots_alpha;
+        let beta_shoots = self.shoots_beta;
 
-        let other_player_board = match player {
-            Player::Alpha => self.get_board(Player::Beta),
-            Player::Beta => self.get_board(Player::Alpha),
-        };
-
-        other_player_board & !player_shoots == 0
+        if (beta_board & !alpha_shoots) == 0 {
+            return true;
+        }
+        if (alpha_board & !beta_shoots) == 0 {
+            return true;
+        }
+        false
     }
 
     pub fn add_ship(&mut self, player: Player, ship: u128, layer: usize) -> Result<(), ()> {

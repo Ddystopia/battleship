@@ -165,6 +165,17 @@ pub const fn transpose(input: u128) -> u128 {
     result
 }
 
+#[inline(always)]
+pub const fn ship_size(ship: u128) -> usize {
+    let mut length = 0;
+    let mut num = ship;
+    while num != 0 {
+        length += num & 1;
+        num >>= 1;
+    }
+    length as usize
+}
+
 mod test {
     #[allow(unused_imports)]
     use super::*;
