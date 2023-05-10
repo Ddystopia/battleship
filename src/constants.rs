@@ -6,7 +6,7 @@ pub const BOARD_SIZE: usize = 10;
 pub const BOARD_COUNT: usize = BOARD_SIZE * BOARD_SIZE;
 pub const GAP: usize = CAP - BOARD_COUNT;
 
-pub const CELL: u128 = (u128::MAX >> 1) + 1;
+pub const CELL: u128 = 1 << (CAP - 1);
 pub const LINE: u128 = ((1 << BOARD_SIZE) - 1) << (CAP - BOARD_SIZE);
 pub const BOARD_MASK: u128 = ((1 << BOARD_COUNT) - 1) << (CAP - BOARD_COUNT);
 

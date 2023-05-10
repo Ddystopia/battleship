@@ -91,20 +91,21 @@ pub const fn add_ship(
 
 #[inline(always)]
 pub const fn create_surround_mask(item: u128) -> u128 {
-    use Direction::*;
-    let mask = item | move_board(item, 1, Right) | move_board(item, 1, Left);
-    mask | move_board(mask, 1, Up) | move_board(mask, 1, Down)
+    let mask_horizontal = item | item << 1 | item >> 1;
+
+    let mask_up = mask_horizontal << (BOARD_SIZE);
+    let mask_down = mask_horizontal >> (BOARD_SIZE);
+
+    mask_horizontal | mask_up | mask_down
 }
 
 #[inline(always)]
 pub const fn move_board(board: u128, step: usize, direction: Direction) -> u128 {
-    let shift = match direction {
-        Direction::Up | Direction::Down => BOARD_SIZE * step,
-        Direction::Left | Direction::Right => step,
-    };
     match direction {
-        Direction::Up | Direction::Left => board << shift,
-        Direction::Down | Direction::Right => board >> shift,
+        Direction::Up => board << (BOARD_SIZE * step),
+        Direction::Down => board >> (BOARD_SIZE * step),
+        Direction::Left => board << step,
+        Direction::Right => board >> step,
     }
 }
 
