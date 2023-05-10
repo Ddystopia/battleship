@@ -1,8 +1,8 @@
 #![allow(clippy::unusual_byte_groupings)]
 
 use crate::constants::{
-    BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK, RGT_BORDER_MASK,
-    TOP_BORDER_MASK,
+    BOARD_BORDER, BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK,
+    RGT_BORDER_MASK, TOP_BORDER_MASK,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -91,12 +91,15 @@ pub const fn add_ship(
 
 #[inline(always)]
 pub const fn create_surround_mask(item: u128) -> u128 {
-    let mask_horizontal = item | item << 1 | item >> 1;
+    use Direction::*;
+    let mask_horizontal = item | saturated_move(item, Left) | saturated_move(item, Right);
 
-    let mask_up = mask_horizontal << (BOARD_SIZE);
-    let mask_down = mask_horizontal >> (BOARD_SIZE);
+    let mask_up = saturated_move(mask_horizontal, Up);
+    let mask_down = saturated_move(mask_horizontal, Down);
 
-    mask_horizontal | mask_up | mask_down
+    let mask = mask_horizontal | mask_up | mask_down;
+
+    mask & !BOARD_BORDER
 }
 
 #[inline(always)]
@@ -110,7 +113,7 @@ pub const fn move_board(board: u128, step: usize, direction: Direction) -> u128 
 }
 
 #[inline(always)]
-pub const fn move_ship(ship: u128, direction: Direction) -> Result<u128, ()> {
+pub const fn saturated_move(ship: u128, direction: Direction) -> u128 {
     let mask = match direction {
         Direction::Up => TOP_BORDER_MASK,
         Direction::Down => BOT_BORDER_MASK,
@@ -119,10 +122,10 @@ pub const fn move_ship(ship: u128, direction: Direction) -> Result<u128, ()> {
     };
 
     if ship & mask != 0 {
-        return Err(());
+        return ship;
     }
 
-    Ok(move_board(ship, 1, direction))
+    move_board(ship, 1, direction)
 }
 
 #[inline(always)]
@@ -214,19 +217,19 @@ mod test {
     #[test]
     fn move_1_down() {
         assert_eq!(
-            move_ship(
+            saturated_move(
                 0b00001_00000__00000_00000__00000_00000 << GAP,
                 Direction::Down
             ),
-            Ok(0b00000_00000_00001_00000_00000_00000 << GAP)
+            0b00000_00000_00001_00000_00000_00000 << GAP
         );
     }
 
     #[test]
     fn move_1_left() {
         assert_eq!(
-            move_ship(0b00001_00000, Direction::Left),
-            Ok(0b00001_00000 << 1)
+            saturated_move(0b00001_00000, Direction::Left),
+            0b00001_00000 << 1
         );
     }
 }
