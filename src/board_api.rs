@@ -92,14 +92,12 @@ pub const fn add_ship(
 #[inline(always)]
 pub const fn create_surround_mask(item: u128) -> u128 {
     use Direction::*;
-    let mask_horizontal = item | saturated_move(item, Left) | saturated_move(item, Right);
+    let mask_horizontal = item | cutting_move(item, Left) | cutting_move(item, Right);
 
-    let mask_up = saturated_move(mask_horizontal, Up);
-    let mask_down = saturated_move(mask_horizontal, Down);
+    let mask_up = cutting_move(mask_horizontal, Up);
+    let mask_down = cutting_move(mask_horizontal, Down);
 
-    let mask = mask_horizontal | mask_up | mask_down;
-
-    mask & !BOARD_BORDER
+    mask_horizontal | mask_up | mask_down
 }
 
 #[inline(always)]
@@ -123,6 +121,22 @@ pub const fn saturated_move(ship: u128, direction: Direction) -> u128 {
 
     if ship & mask != 0 {
         return ship;
+    }
+
+    move_board(ship, 1, direction)
+}
+
+#[inline(always)]
+pub const fn cutting_move(mut ship: u128, direction: Direction) -> u128 {
+    let mask = match direction {
+        Direction::Up => TOP_BORDER_MASK,
+        Direction::Down => BOT_BORDER_MASK,
+        Direction::Left => LEF_BORDER_MASK,
+        Direction::Right => RGT_BORDER_MASK,
+    };
+
+    if ship & mask != 0 {
+        ship &= !mask;
     }
 
     move_board(ship, 1, direction)
