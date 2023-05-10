@@ -1,10 +1,15 @@
-use std::io::{BufWriter, Write};
+use std::io::{self, BufWriter, Write};
+use std::{io::Read, process::Command};
+use termios::{tcsetattr, Termios, ECHO, ICANON, TCSANOW, VMIN, VTIME};
 
+use crate::board_api::{move_ship, Direction};
 use crate::{
     board_api::{board_get, create_ship, create_surround_mask, transpose, Orientation},
     constants::BOARD_SIZE,
     game::{Game, Player},
 };
+
+pub type OutputBuffer = [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE];
 
 // Base part of fiels. Represents something like [ ], [*], [~], [O]
 pub struct Cell {}
@@ -60,6 +65,7 @@ pub fn place_ships(game: &mut Game, player: Player) {
 //  - [~] -- unknown
 //  - [O] -- your ship
 //  - [X] -- collided ship
+//  - [o] -- new ship
 //
 // colors :
 //   - [ ] -- \033[00m[ ]\033[0m
@@ -67,6 +73,7 @@ pub fn place_ships(game: &mut Game, player: Player) {
 //   - [~] -- \033[34m[~]\033[0m
 //   - [O] -- \033[32m[O]\033[0m
 //   - [X] -- \033[33m[X]\033[0m
+//   - [o] -- \033[32m[o]\033[0m
 //
 // Cell size: 12
 //
@@ -92,10 +99,11 @@ const CELL_HIT: [char; CELL_SIZE] = create_cell("\u{001B}[31m[*]\u{001B}[0m");
 const CELL_UNKNOWN: [char; CELL_SIZE] = create_cell("\u{001B}[34m[~]\u{001B}[0m");
 const CELL_SHIP: [char; CELL_SIZE] = create_cell("\u{001B}[32m[O]\u{001B}[0m");
 const CELL_COLLISION: [char; CELL_SIZE] = create_cell("\u{001B}[33m[X]\u{001B}[0m");
+const CELL_NEW_SHIP: [char; CELL_SIZE] = create_cell("\u{001B}[32m[o]\u{001B}[0m");
 
 fn copy_cell(
     cell: &[char; CELL_SIZE],
-    buffer: &mut [[[char; CELL_SIZE]; 10]; 10],
+    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
     x: usize,
     y: usize,
 ) {
@@ -104,7 +112,7 @@ fn copy_cell(
     }
 }
 
-fn clear_buffer(buffer: &mut [[[char; CELL_SIZE]; 10]; 10]) {
+fn clear_buffer(buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
             for i in 0..CELL_SIZE {
@@ -114,7 +122,7 @@ fn clear_buffer(buffer: &mut [[[char; CELL_SIZE]; 10]; 10]) {
     }
 }
 
-fn render_unknown(buffer: &mut [[[char; CELL_SIZE]; 10]; 10]) {
+fn render_unknown(buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
             copy_cell(&CELL_UNKNOWN, buffer, x, y);
@@ -122,7 +130,11 @@ fn render_unknown(buffer: &mut [[[char; CELL_SIZE]; 10]; 10]) {
     }
 }
 
-fn render_board_ships(game: &Game, player: Player, buffer: &mut [[[char; CELL_SIZE]; 10]; 10]) {
+fn render_board_ships(
+    game: &Game,
+    player: Player,
+    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
+) {
     let board = game.get_board(player);
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
@@ -133,7 +145,37 @@ fn render_board_ships(game: &Game, player: Player, buffer: &mut [[[char; CELL_SI
     }
 }
 
-fn render_board_hits(game: &Game, player: Player, buffer: &mut [[[char; CELL_SIZE]; 10]; 10]) {
+fn render_board_ships_n_new_ship(
+    game: &Game,
+    player: Player,
+    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
+    new_ship: u128,
+) {
+    render_board_ships(game, player, buffer);
+
+    let board = game.get_board(player);
+    for y in 0..BOARD_SIZE {
+        for x in 0..BOARD_SIZE {
+            if board_get(new_ship, x, y) {
+                copy_cell(&CELL_NEW_SHIP, buffer, x, y);
+            }
+        }
+    }
+    let collision = new_ship & create_surround_mask(board);
+    for y in 0..BOARD_SIZE {
+        for x in 0..BOARD_SIZE {
+            if board_get(collision, x, y) {
+                copy_cell(&CELL_COLLISION, buffer, x, y);
+            }
+        }
+    }
+}
+
+fn render_board_hits(
+    game: &Game,
+    player: Player,
+    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
+) {
     let board = game.get_hitted(player);
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
@@ -145,51 +187,126 @@ fn render_board_hits(game: &Game, player: Player, buffer: &mut [[[char; CELL_SIZ
 }
 
 fn display_board(buffer: &[[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE]) {
-    let stdout = std::io::stdout();
-    let mut stdout = BufWriter::new(stdout.lock());
-
+    let mut stdout = io::stdout();
     for y in 0..BOARD_SIZE {
         for x in 0..BOARD_SIZE {
             for i in 0..CELL_SIZE {
-                stdout.write(&[buffer[y][x][i] as u8]);
+                stdout
+                    .write_all(buffer[y][x][i].encode_utf8(&mut [0; 4]).as_bytes())
+                    .unwrap();
             }
         }
-        stdout.write(b"\n");
+        stdout.write_all(b"\n").unwrap();
     }
+    stdout.flush().unwrap();
+}
+
+fn read_new_ship(
+    game: &Game,
+    player: Player,
+    buffer: &mut [[[char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE],
+    ship_size: usize,
+) -> u128 {
+    let mut new_ship = create_ship(ship_size);
+    Command::new("clear").status().unwrap();
+    clear_buffer(buffer);
+    render_unknown(buffer);
+    render_board_ships_n_new_ship(game, player, buffer, new_ship);
+    display_board(buffer);
+
+    loop {
+        let mut termios = Termios::from_fd(0).unwrap();
+        termios.c_lflag &= !(ECHO | ICANON);
+        termios.c_cc[VMIN] = 1;
+        termios.c_cc[VTIME] = 0;
+        tcsetattr(0, TCSANOW, &termios).unwrap();
+        let mut buf = [0u8; 1];
+        io::stdin().read_exact(&mut buf).unwrap();
+        termios.c_lflag |= ECHO | ICANON;
+        tcsetattr(0, TCSANOW, &termios).unwrap();
+        let input = buf[0] as char;
+
+        clear_buffer(buffer);
+        render_unknown(buffer);
+        if input == '\n' && game.can_place_ship(player, new_ship) {
+            break;
+        }
+
+        if input == 'q' || input == 'e' {
+            new_ship = transpose(new_ship);
+        }
+
+        if input == 'w' {
+            if let Ok(nship) = move_ship(new_ship, Direction::Up) {
+                new_ship = nship;
+            }
+        }
+        if input == 's' {
+            if let Ok(nship) = move_ship(new_ship, Direction::Down) {
+                new_ship = nship;
+            }
+        }
+        if input == 'a' {
+            if let Ok(nship) = move_ship(new_ship, Direction::Left) {
+                new_ship = nship;
+            }
+        }
+        if input == 'd' {
+            if let Ok(nship) = move_ship(new_ship, Direction::Right) {
+                new_ship = nship;
+            }
+        }
+
+        render_board_ships_n_new_ship(game, player, buffer, new_ship);
+
+        Command::new("clear").status().unwrap();
+        display_board(buffer);
+    }
+    new_ship
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{io, process::Command, thread::sleep, time::Duration};
-
-    use crate::board_api::{move_ship, Direction};
-
     use super::*;
 
     #[test]
     fn test_display_alpha_board() {
         let mut game = Game::default();
         let mut buffer = [[[0 as char; CELL_SIZE]; BOARD_SIZE]; BOARD_SIZE];
-        for i in 1..30 {
-            println!("Step: {}", i);
-            let mut ship = create_ship(4);
-            let step = i;
-            match move_ship(ship, step, Direction::Right) {
-                Err(_) => {}
-                Ok(new_ship) => {
-                    ship = new_ship;
-                    game.add_ship(Player::Alpha, ship, 0);
-                    clear_buffer(&mut buffer);
-                    render_unknown(&mut buffer);
-                    render_board_ships(&game, Player::Alpha, &mut buffer);
-                    display_board(&buffer);
-                }
-            }
-            sleep(Duration::from_secs(1));
-            Command::new("clear").status();
 
-            // print!("{}[2J{}[1;1H", 27 as char, 27 as char);
-            // io::stdout().flush().unwrap();
-        }
+        game.add_ship(
+            Player::Alpha,
+            read_new_ship(&game, Player::Alpha, &mut buffer, 5),
+            0,
+        )
+        .unwrap();
+
+        game.add_ship(
+            Player::Alpha,
+            read_new_ship(&game, Player::Alpha, &mut buffer, 4),
+            1,
+        )
+        .unwrap();
+
+        game.add_ship(
+            Player::Alpha,
+            read_new_ship(&game, Player::Alpha, &mut buffer, 3),
+            2,
+        )
+        .unwrap();
+
+        game.add_ship(
+            Player::Alpha,
+            read_new_ship(&game, Player::Alpha, &mut buffer, 3),
+            3,
+        )
+        .unwrap();
+
+        game.add_ship(
+            Player::Alpha,
+            read_new_ship(&game, Player::Alpha, &mut buffer, 2),
+            4,
+        )
+        .unwrap();
     }
 }
