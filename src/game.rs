@@ -1,4 +1,6 @@
-use crate::board_api::create_surround_mask;
+use std::{thread::sleep, time::Duration};
+
+use crate::{board_api::create_surround_mask, constants::BOT_BORDER_MASK, front::render_mask};
 
 const SHIPS_COUNT: usize = 5;
 
@@ -79,11 +81,56 @@ impl Game {
         board
     }
 
+    pub fn get_shoots(&self, player: Player) -> u128 {
+        match player {
+            Player::Alpha => self.shoots_alpha,
+            Player::Beta => self.shoots_beta,
+        }
+    }
+
     pub fn can_place_ship(&self, player: Player, ship: u128) -> bool {
         let mask = create_surround_mask(ship);
         let board = self.get_board(player);
 
         mask & board == 0
+    }
+
+    pub fn shoot(&mut self, player: Player, shoot: u128) {
+        match player {
+            Player::Alpha => self.shoots_alpha |= shoot,
+            Player::Beta => self.shoots_beta |= shoot,
+        }
+
+        let player_shoots = match player {
+            Player::Alpha => &mut self.shoots_alpha,
+            Player::Beta => &mut self.shoots_beta,
+        };
+
+        for layer_num in 0..SHIPS_COUNT {
+            let layer = match player {
+                Player::Alpha => self.ships_beta[layer_num],
+                Player::Beta => self.ships_alpha[layer_num],
+            };
+
+            if layer & !*player_shoots == 0 {
+                *player_shoots |= create_surround_mask(layer);
+            }
+        }
+    }
+
+    pub fn is_over(&self, player: Player) -> bool {
+        // UN CHECKED
+        let player_shoots = match player {
+            Player::Alpha => self.shoots_alpha,
+            Player::Beta => self.shoots_beta,
+        };
+
+        let other_player_board = match player {
+            Player::Alpha => self.get_board(Player::Beta),
+            Player::Beta => self.get_board(Player::Alpha),
+        };
+
+        other_player_board & !player_shoots == 0
     }
 
     pub fn add_ship(&mut self, player: Player, ship: u128, layer: usize) -> Result<(), ()> {
@@ -140,7 +187,7 @@ mod test {
     #![allow(unused_imports)]
 
     use super::*;
-    use crate::board_api::{create_ship, wrapping_move, transpose, Direction};
+    use crate::board_api::{create_ship, transpose, wrapping_move, Direction};
 
     #[test]
     fn cant_place_a_ship() {
