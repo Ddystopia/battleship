@@ -1,6 +1,7 @@
 use crate::board_api::create_surround_mask;
 
-pub const SHIPS_COUNT: usize = 5;
+pub const SHIP_SIZES: [usize; 5] = [5, 4, 3, 3, 2];
+pub const SHIPS_COUNT: usize = SHIP_SIZES.len();
 
 // • авианосец - 5 ячеек(клеток);
 // • крейсер - 4 ячейки;
@@ -17,15 +18,12 @@ pub struct Game {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Player {
-    Alpha = 0,
-    Beta = 1,
+    Alpha,
+    Beta,
 }
 
 impl Player {
     pub fn other(&self) -> Player {
-        // for C use:
-        // unsafe { std::mem::transmute(!(self as bool)) }
-        // (Player) (!self)
         match self {
             Player::Alpha => Player::Beta,
             Player::Beta => Player::Alpha,
@@ -35,14 +33,12 @@ impl Player {
 
 impl Game {
     pub fn get_board(&self, player: Player) -> u128 {
-        let mut board: u128 = 0;
-        for i in 0..SHIPS_COUNT {
-            board |= match player {
-                Player::Alpha => self.ships_alpha[i],
-                Player::Beta => self.ships_beta[i],
-            };
-        }
-        board
+        let ships = match player {
+            Player::Alpha => self.ships_alpha,
+            Player::Beta => self.ships_beta,
+        };
+
+        ships.into_iter().reduce(|acc, ship| acc | ship).unwrap_or(0)
     }
 
     pub fn get_shoots(&self, player: Player) -> u128 {
@@ -60,50 +56,32 @@ impl Game {
     }
 
     pub fn shoot(&mut self, player: Player, shoot: u128) {
-        let player_shoots = match player {
-            Player::Alpha => &mut self.shoots_alpha,
-            Player::Beta => &mut self.shoots_beta,
+        let (player_shoots, mut layers) = match player {
+            Player::Alpha => (&mut self.shoots_alpha, self.ships_beta.into_iter()),
+            Player::Beta => (&mut self.shoots_beta, self.ships_alpha.into_iter()),
         };
 
         *player_shoots |= shoot;
 
-        for layer_num in 0..SHIPS_COUNT {
-            let layer = match player {
-                Player::Alpha => self.ships_beta[layer_num],
-                Player::Beta => self.ships_alpha[layer_num],
-            };
+        let shoots = *player_shoots;
 
-            if layer & !*player_shoots == 0 {
-                *player_shoots |= create_surround_mask(layer);
-            }
+        if let Some(layer) = layers.find(move |layer| layer & !shoots == 0) {
+            *player_shoots |= create_surround_mask(layer);
         }
     }
 
-    pub fn get_winner(&self) -> i8 {
-        if self.is_over() {
-            if self.get_board(Player::Beta) & !self.shoots_alpha == 0 {
-                return Player::Alpha as i8;
-            }
-            if self.get_board(Player::Alpha) & !self.shoots_beta == 0 {
-                return Player::Beta as i8;
-            }
+    pub fn get_winner(&self) -> Option<Player> {
+        if self.get_board(Player::Beta) & !self.shoots_alpha == 0 {
+            return Some(Player::Alpha);
         }
-        -1
+        if self.get_board(Player::Alpha) & !self.shoots_beta == 0 {
+            return Some(Player::Beta);
+        }
+        None
     }
 
     pub fn is_over(&self) -> bool {
-        let alpha_board = self.get_board(Player::Alpha);
-        let beta_board = self.get_board(Player::Beta);
-        let alpha_shoots = self.shoots_alpha;
-        let beta_shoots = self.shoots_beta;
-
-        if (beta_board & !alpha_shoots) == 0 {
-            return true;
-        }
-        if (alpha_board & !beta_shoots) == 0 {
-            return true;
-        }
-        false
+        self.get_winner().is_some()
     }
 
     pub fn add_ship(&mut self, player: Player, ship: u128, layer: usize) -> Result<(), ()> {
@@ -112,13 +90,10 @@ impl Game {
         }
 
         match player {
-            Player::Alpha => {
-                self.ships_alpha[layer] |= ship;
-            }
-            Player::Beta => {
-                self.ships_beta[layer] |= ship;
-            }
+            Player::Alpha => self.ships_alpha[layer] |= ship,
+            Player::Beta => self.ships_beta[layer] |= ship,
         };
+
         Ok(())
     }
 }

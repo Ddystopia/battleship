@@ -1,8 +1,8 @@
 #![allow(clippy::unusual_byte_groupings)]
 
 use crate::constants::{
-    BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK,
-    RGT_BORDER_MASK, TOP_BORDER_MASK,
+    BOARD_MASK, BOARD_SIZE, BOT_BORDER_MASK, CAP, GAP, LEF_BORDER_MASK, RGT_BORDER_MASK,
+    TOP_BORDER_MASK,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -37,20 +37,6 @@ pub const fn board_set(board: u128, x: usize, y: usize, value: bool) -> u128 {
         board & !v
     }
 }
-/*
- * GCC cant optimize this code
- u128 f(u128 a, u128 b, char value) {
-   u128 result;
-   asm(
-       "test %[value], %[value]\n\t"
-       "cmovne %[result_or], %[result_not]\n\t"
-       : [result_or] "=r" (result)
-       : "0" (a | b), [result_not] "r" (a & ~b), [value] "r" (value)
-       : "cc"
-   );
-   return result;
-}
-*/
 
 /// Creates a horizontal ship of the given size.
 #[inline(always)]

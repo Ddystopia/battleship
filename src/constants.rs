@@ -1,4 +1,4 @@
-use crate::board_api::{wrapping_move, transpose, Direction};
+use crate::board_api::{transpose, wrapping_move, Direction};
 
 pub const CAP: usize = u128::BITS as usize;
 pub const BOARD_SIZE: usize = 10;
